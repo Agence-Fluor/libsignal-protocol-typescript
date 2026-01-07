@@ -1,4 +1,4 @@
-# libsignal-protocol-javascript
+# libsignal-protocol-typescript
 
 A modern TypeScript implementation of the Signal Protocol for JavaScript/TypeScript applications.
 
