@@ -38,7 +38,7 @@ export interface EncryptedMessage {
   registrationId: number;
 }
 
-export const enum Direction {
+export enum Direction {
   SENDING = 1,
   RECEIVING = 2,
 }
