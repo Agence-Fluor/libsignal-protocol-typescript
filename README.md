@@ -1,200 +1,185 @@
-**Deprecation Warning**: It is recommended that the TypeScript interface of [libsignal-client](https://github.com/signalapp/libsignal-client) be used for all new applications. This library is no longer used by us or maintained.
-
 # libsignal-protocol-javascript
 
-[![Build Status](https://travis-ci.org/signalapp/libsignal-protocol-javascript.svg?branch=master)](https://travis-ci.org/signalapp/libsignal-protocol-javascript)
+A modern TypeScript implementation of the Signal Protocol for JavaScript/TypeScript applications.
 
+## Features
 
-Signal Protocol implementation for the browser based on
-[libsignal-protocol-java](https://github.com/signalapp/libsignal-protocol-java).
+- **Modern TypeScript** - Full type safety and IDE support
+- **Native Web Crypto** - Uses browser's Web Crypto API for AES, HMAC, and random bytes
+- **@noble/curves** - Uses audited, pure JavaScript implementations for X25519 and Ed25519
+- **Zero native dependencies** - No WebAssembly or native modules required
+- **Tree-shakeable** - ES modules for optimal bundle sizes
+- **Browser & Node.js** - Works in modern browsers and Node.js 18+
 
-```
-/dist       # Distributables
-/build      # Intermediate build files
-/src        # JS source files
-/native     # C source files for curve25519
-/protos     # Protobuf definitions
-/test       # Tests
-```
+## Installation
 
-## Overview
-A ratcheting forward secrecy protocol that works in synchronous and
-asynchronous messaging environments.
-
-### PreKeys
-
-This protocol uses a concept called 'PreKeys'. A PreKey is an ECPublicKey and
-an associated unique ID which are stored together by a server. PreKeys can also
-be signed.
-
-At install time, clients generate a single signed PreKey, as well as a large
-list of unsigned PreKeys, and transmit all of them to the server.
-
-### Sessions
-
-Signal Protocol is session-oriented. Clients establish a "session," which is
-then used for all subsequent encrypt/decrypt operations. There is no need to
-ever tear down a session once one has been established.
-
-Sessions are established in one of two ways:
-
-1. PreKeyBundles. A client that wishes to send a message to a recipient can
-   establish a session by retrieving a PreKeyBundle for that recipient from the
-   server.
-1. PreKeySignalMessages. A client can receive a PreKeySignalMessage from a
-   recipient and use it to establish a session.
-
-### State
-
-An established session encapsulates a lot of state between two clients. That
-state is maintained in durable records which need to be kept for the life of
-the session.
-
-State is kept in the following places:
-
-* Identity State. Clients will need to maintain the state of their own identity
-  key pair, as well as identity keys received from other clients.
-* PreKey State. Clients will need to maintain the state of their generated
-  PreKeys.
-* Signed PreKey States. Clients will need to maintain the state of their signed
-  PreKeys.
-* Session State. Clients will need to maintain the state of the sessions they
-  have established.
-
-## Requirements
-
-This implementation currently depends on the presence of the following
-types/interfaces, which are available in most modern browsers.
-
-* [ArrayBuffer](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/ArrayBuffer)
-* [TypedArray](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/TypedArray)
-* [Promise](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Promise)
-* [WebCrypto](https://developer.mozilla.org/en-US/docs/Web/API/Crypto) with support for:
-  - AES-CBC
-  - HMAC SHA-256
-
-## Usage
-
-Include `dist/libsignal-protocol.js` in your webpage.
-
-### Install time
-
-At install time, a libsignal client needs to generate its identity keys,
-registration id, and prekeys.
-
-```js
-var KeyHelper = libsignal.KeyHelper;
-
-var registrationId = KeyHelper.generateRegistrationId();
-// Store registrationId somewhere durable and safe.
-
-KeyHelper.generateIdentityKeyPair().then(function(identityKeyPair) {
-    // keyPair -> { pubKey: ArrayBuffer, privKey: ArrayBuffer }
-    // Store identityKeyPair somewhere durable and safe.
-});
-
-KeyHelper.generatePreKey(keyId).then(function(preKey) {
-    store.storePreKey(preKey.keyId, preKey.keyPair);
-});
-
-KeyHelper.generateSignedPreKey(identityKeyPair, keyId).then(function(signedPreKey) {
-    store.storeSignedPreKey(signedPreKey.keyId, signedPreKey.keyPair);
-});
-
-// Register preKeys and signedPreKey with the server
+```bash
+npm install libsignal-protocol
 ```
 
-### Building a session
+## Quick Start
 
-A libsignal client needs to implement a storage interface that will manage
-loading and storing of identity, prekeys, signed prekeys, and session state.
-See `test/InMemorySignalProtocolStore.js` for an example.
+```typescript
+import {
+  KeyHelper,
+  SignalProtocolAddress,
+  SessionBuilder,
+  SessionCipher,
+  type SignalProtocolStore,
+  Direction,
+} from 'libsignal-protocol';
 
-Once this is implemented, building a session is fairly straightforward:
+// 1. Implement the SignalProtocolStore interface
+class MyStore implements SignalProtocolStore {
+  Direction = Direction;
+  // ... implement storage methods
+}
 
-```js
-var store   = new MySignalProtocolStore();
-var address = new libsignal.SignalProtocolAddress(recipientId, deviceId);
+// 2. Generate identity keys
+const identityKeyPair = await KeyHelper.generateIdentityKeyPair();
+const registrationId = KeyHelper.generateRegistrationId();
 
-// Instantiate a SessionBuilder for a remote recipientId + deviceId tuple.
-var sessionBuilder = new libsignal.SessionBuilder(store, address);
+// 3. Generate pre-keys
+const preKey = await KeyHelper.generatePreKey(1);
+const signedPreKey = await KeyHelper.generateSignedPreKey(identityKeyPair, 1);
 
-// Process a prekey fetched from the server. Returns a promise that resolves
-// once a session is created and saved in the store, or rejects if the
-// identityKey differs from a previously seen identity for this address.
-var promise = sessionBuilder.processPreKey({
-    registrationId: <Number>,
-    identityKey: <ArrayBuffer>,
-    signedPreKey: {
-        keyId     : <Number>,
-        publicKey : <ArrayBuffer>,
-        signature : <ArrayBuffer>
-    },
-    preKey: {
-        keyId     : <Number>,
-        publicKey : <ArrayBuffer>
-    }
+// 4. Create a session
+const store = new MyStore();
+const address = new SignalProtocolAddress('recipient', 1);
+const sessionBuilder = new SessionBuilder(store, address);
+
+await sessionBuilder.processPreKey({
+  registrationId: remoteRegistrationId,
+  identityKey: remoteIdentityKey,
+  signedPreKey: {
+    keyId: remoteSignedPreKey.keyId,
+    publicKey: remoteSignedPreKey.keyPair.pubKey,
+    signature: remoteSignedPreKey.signature,
+  },
+  preKey: {
+    keyId: remotePreKey.keyId,
+    publicKey: remotePreKey.keyPair.pubKey,
+  },
 });
 
-promise.then(function onsuccess() {
-  // encrypt messages
-});
+// 5. Encrypt messages
+const cipher = new SessionCipher(store, address);
+const encrypted = await cipher.encrypt('Hello, World!');
 
-promise.catch(function onerror(error) {
-  // handle identity key conflict
-});
+// 6. Decrypt messages
+const plaintext = await cipher.decryptPreKeyWhisperMessage(encrypted.body);
 ```
 
-### Encrypting
+## API Reference
 
-Once you have a session established with an address, you can encrypt messages
-using SessionCipher.
+### Key Generation
 
-```js
-var plaintext = "Hello world";
-var sessionCipher = new libsignal.SessionCipher(store, address);
-sessionCipher.encrypt(plaintext).then(function(ciphertext) {
-    // ciphertext -> { type: <Number>, body: <string> }
-    handle(ciphertext.type, ciphertext.body);
-});
+```typescript
+// Generate an identity key pair
+const identityKeyPair = await KeyHelper.generateIdentityKeyPair();
+
+// Generate a registration ID
+const registrationId = KeyHelper.generateRegistrationId();
+
+// Generate a pre-key
+const preKey = await KeyHelper.generatePreKey(keyId);
+
+// Generate a signed pre-key
+const signedPreKey = await KeyHelper.generateSignedPreKey(identityKeyPair, keyId);
 ```
 
-### Decrypting
+### Session Management
 
-Ciphertexts come in two flavors: WhisperMessage and PreKeyWhisperMessage.
+```typescript
+// Create a session builder
+const builder = new SessionBuilder(store, address);
 
-```js
-var address = new SignalProtocolAddress(recipientId, deviceId);
-var sessionCipher = new SessionCipher(store, address);
+// Process a pre-key bundle
+await builder.processPreKey(preKeyBundle);
 
-// Decrypt a PreKeyWhisperMessage by first establishing a new session.
-// Returns a promise that resolves when the message is decrypted or
-// rejects if the identityKey differs from a previously seen identity for this
-// address.
-sessionCipher.decryptPreKeyWhisperMessage(ciphertext).then(function(plaintext) {
-    // handle plaintext ArrayBuffer
-}).catch(function(error) {
-    // handle identity key conflict
-});
+// Create a session cipher
+const cipher = new SessionCipher(store, address);
 
-// Decrypt a normal message using an existing session
-var sessionCipher = new SessionCipher(store, address);
-sessionCipher.decryptWhisperMessage(ciphertext).then(function(plaintext) {
-    // handle plaintext ArrayBuffer
-});
+// Encrypt a message
+const encrypted = await cipher.encrypt(plaintext);
+
+// Decrypt messages
+const plaintext = await cipher.decryptWhisperMessage(ciphertext);
+const plaintext = await cipher.decryptPreKeyWhisperMessage(ciphertext);
+
+// Session utilities
+await cipher.hasOpenSession();
+await cipher.closeOpenSessionForDevice();
+await cipher.deleteAllSessionsForDevice();
 ```
 
-## Building
+### Fingerprint Verification
 
-To compile curve25519 from C source files in `/native`, install
-[emscripten](https://kripken.github.io/emscripten-site/docs/getting_started/downloads.html).
+```typescript
+import { FingerprintGenerator } from 'libsignal-protocol';
 
+const generator = new FingerprintGenerator(5200);
+const fingerprint = await generator.createFor(
+  localIdentifier,
+  localIdentityKey,
+  remoteIdentifier,
+  remoteIdentityKey
+);
+// Returns a 60-digit numeric fingerprint for verification
 ```
-grunt compile
+
+## Storage Interface
+
+You must implement the `SignalProtocolStore` interface:
+
+```typescript
+interface SignalProtocolStore {
+  Direction: typeof Direction;
+
+  // Identity keys
+  getIdentityKeyPair(): Promise<KeyPair | undefined>;
+  getLocalRegistrationId(): Promise<number | undefined>;
+  isTrustedIdentity(
+    identifier: string,
+    identityKey: ArrayBuffer,
+    direction: Direction
+  ): Promise<boolean>;
+  saveIdentity(identifier: string, identityKey: ArrayBuffer): Promise<boolean>;
+
+  // Pre-keys
+  loadPreKey(keyId: number): Promise<KeyPair | undefined>;
+  storePreKey(keyId: number, keyPair: KeyPair): Promise<void>;
+  removePreKey(keyId: number): Promise<void>;
+
+  // Signed pre-keys
+  loadSignedPreKey(keyId: number): Promise<KeyPair | undefined>;
+  storeSignedPreKey(keyId: number, keyPair: KeyPair): Promise<void>;
+  removeSignedPreKey(keyId: number): Promise<void>;
+
+  // Sessions
+  loadSession(identifier: string): Promise<string | undefined>;
+  storeSession(identifier: string, record: string): Promise<void>;
+  removeSession(identifier: string): Promise<void>;
+  removeAllSessions(identifier: string): Promise<void>;
+}
 ```
+
+## Browser Support
+
+- Chrome 113+
+- Firefox 130+
+- Safari 17+
+- Edge 113+
 
 ## License
 
-Copyright 2015-2018 Open Whisper Systems
+GPL-3.0
 
-Licensed under the GPLv3: http://www.gnu.org/licenses/gpl-3.0.html
+## Credits
+
+Based on the original [libsignal-protocol-javascript](https://github.com/nicokoch/libsignal-protocol-javascript) by Open Whisper Systems.
+
+Cryptographic primitives provided by:
+- [@noble/curves](https://github.com/paulmillr/noble-curves) - X25519 and Ed25519
+- [@noble/hashes](https://github.com/paulmillr/noble-hashes) - SHA-512
+- Web Crypto API - AES-CBC, HMAC-SHA256, secure random
