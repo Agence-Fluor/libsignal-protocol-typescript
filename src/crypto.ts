@@ -13,7 +13,7 @@
  * edwardsToMontgomery conversion functions.
  */
 
-import { x25519, ed25519, edwardsToMontgomeryPub, edwardsToMontgomeryPriv } from '@noble/curves/ed25519';
+import { x25519, ed25519 } from '@noble/curves/ed25519';
 import type { KeyPair } from './types.js';
 import { toUint8Array } from './utils.js';
 
@@ -263,10 +263,10 @@ export function ECDHE(pubKey: ArrayBuffer | string, privKey: ArrayBuffer | strin
     : toUint8Array(privKey);
   
   // Convert Ed25519 public key to X25519 (Montgomery) public key
-  const x25519PubKey = edwardsToMontgomeryPub(edPubKey);
+  const x25519PubKey = ed25519.utils.toMontgomery(edPubKey);
   
   // Convert Ed25519 private key to X25519 private key
-  const x25519PrivKey = edwardsToMontgomeryPriv(seed);
+  const x25519PrivKey = ed25519.utils.toMontgomerySecret(seed);
   
   // Perform X25519 ECDH
   const sharedSecret = x25519.getSharedSecret(x25519PrivKey, x25519PubKey);
