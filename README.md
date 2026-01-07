@@ -5,8 +5,8 @@ A modern TypeScript implementation of the Signal Protocol for JavaScript/TypeScr
 ## Features
 
 - **Modern TypeScript** - Full type safety and IDE support
-- **Native Web Crypto** - Uses browser's Web Crypto API for AES, HMAC, and random bytes
-- **@noble/curves** - Uses audited, pure JavaScript implementations for X25519 and Ed25519
+- **Native Web Crypto** - Uses browser's Web Crypto API for X25519 and Ed25519, AES, HMAC, and random bytes
+- **@noble/curves** - Uses audited, pure JavaScript implementations missing X25519 and Ed25519 primitives
 - **Zero native dependencies** - No WebAssembly or native modules required
 - **Tree-shakeable** - ES modules for optimal bundle sizes
 - **Browser & Node.js** - Works in modern browsers and Node.js 18+
@@ -181,5 +181,4 @@ Based on the original [libsignal-protocol-javascript](https://github.com/nicokoc
 
 Cryptographic primitives provided by:
 - [@noble/curves](https://github.com/paulmillr/noble-curves) - X25519 and Ed25519
-- [@noble/hashes](https://github.com/paulmillr/noble-hashes) - SHA-512
-- Web Crypto API - AES-CBC, HMAC-SHA256, secure random
+- Web Crypto API - X25519 and Ed25519, AES-CBC, HMAC-SHA256, secure random

@@ -13,7 +13,7 @@ async function iterateHash(
   count: number
 ): Promise<ArrayBuffer> {
   const combined = concat(data, key);
-  const result = internalCrypto.hash(combined);
+  const result = await internalCrypto.hash(combined);
   
   if (--count === 0) {
     return result;

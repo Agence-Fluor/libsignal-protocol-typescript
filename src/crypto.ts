@@ -14,7 +14,6 @@
  */
 
 import { x25519, ed25519, edwardsToMontgomeryPub, edwardsToMontgomeryPriv } from '@noble/curves/ed25519';
-import { sha512 } from '@noble/hashes/sha512';
 import type { KeyPair } from './types.js';
 import { toUint8Array } from './utils.js';
 
@@ -94,8 +93,8 @@ export async function sign(key: ArrayBuffer, data: ArrayBuffer): Promise<ArrayBu
 /**
  * SHA-512 hash
  */
-export function hash(data: ArrayBuffer): ArrayBuffer {
-  return sha512(new Uint8Array(data)).buffer as ArrayBuffer;
+export async function hash(data: ArrayBuffer): Promise<ArrayBuffer> {
+  return crypto.subtle.digest('SHA-512', data);
 }
 
 /**
